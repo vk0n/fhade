@@ -1,0 +1,52 @@
+nameOverride: ""
+fullnameOverride: ""
+
+fleet:
+  image:
+    repository: fleetdm/fleet
+    tag: v4.65.0
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources: {}
+  env:
+    FLEET_LOGGING_DEBUG: "false"
+  service:
+    type: NodePort
+    port: 8080
+    nodePort: 30080
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: fleet.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+mysql:
+  image:
+    repository: mysql
+    tag: "8.0"
+    pullPolicy: IfNotPresent
+  database: fleet
+  username: fleet
+  password: fleet
+  rootPassword: root
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  resources: {}
+
+redis:
+  image:
+    repository: redis
+    tag: "7.2"
+    pullPolicy: IfNotPresent
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+  resources: {}

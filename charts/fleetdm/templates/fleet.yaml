@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fleetdm.fullname" . }}
+  labels:
+    {{- include "fleetdm.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.fleet.service.type }}
+  ports:
+    - port: {{ .Values.fleet.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.fleet.service.type "NodePort") .Values.fleet.service.nodePort }}
+      nodePort: {{ .Values.fleet.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "fleetdm.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: fleet
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fleetdm.fullname" . }}-fleet
+  labels:
+    {{- include "fleetdm.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.fleet.replicas }}
+  selector:
+    matchLabels:
+      {{- include "fleetdm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: fleet
+  template:
+    metadata:
+      labels:
+        {{- include "fleetdm.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: fleet
+    spec:
+      initContainers:
+        - name: ensure-mysql-user
+          image: "{{ .Values.mysql.image.repository }}:{{ .Values.mysql.image.tag }}"
+          imagePullPolicy: {{ .Values.mysql.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until mysqladmin ping -h {{ include "fleetdm.mysqlServiceName" . }} -uroot -p"$MYSQL_ROOT_PASSWORD" --silent; do
+                echo "waiting for mysql..."
+                sleep 3
+              done
+
+              mysql -h {{ include "fleetdm.mysqlServiceName" . }} -uroot -p"$MYSQL_ROOT_PASSWORD" <<SQL
+              CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
+              CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+              ALTER USER '${MYSQL_USER}'@'%' IDENTIFIED WITH mysql_native_password BY '${MYSQL_PASSWORD}';
+              GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
+              FLUSH PRIVILEGES;
+              SQL
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fleetdm.fullname" . }}-db
+                  key: mysql-root-password
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mysql.database | quote }}
+            - name: MYSQL_USER
+              value: {{ .Values.mysql.username | quote }}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fleetdm.fullname" . }}-db
+                  key: mysql-password
+        - name: prepare-db
+          image: "{{ .Values.fleet.image.repository }}:{{ .Values.fleet.image.tag }}"
+          imagePullPolicy: {{ .Values.fleet.image.pullPolicy }}
+          command: ["fleet", "prepare", "db", "--no-prompt"]
+          env:
+            - name: FLEET_MYSQL_ADDRESS
+              value: {{ printf "%s:3306" (include "fleetdm.mysqlServiceName" .) | quote }}
+            - name: FLEET_MYSQL_DATABASE
+              value: {{ .Values.mysql.database | quote }}
+            - name: FLEET_MYSQL_USERNAME
+              value: {{ .Values.mysql.username | quote }}
+            - name: FLEET_MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fleetdm.fullname" . }}-db
+                  key: mysql-password
+      containers:
+        - name: fleet
+          image: "{{ .Values.fleet.image.repository }}:{{ .Values.fleet.image.tag }}"
+          imagePullPolicy: {{ .Values.fleet.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+            - >
+              fleet serve
+              --mysql_address={{ include "fleetdm.mysqlServiceName" . }}:3306
+              --mysql_database={{ .Values.mysql.database }}
+              --mysql_username={{ .Values.mysql.username }}
+              --mysql_password="$FLEET_MYSQL_PASSWORD"
+              --redis_address={{ include "fleetdm.redisServiceName" . }}:6379
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: FLEET_SERVER_ADDRESS
+              value: 0.0.0.0:8080
+            - name: FLEET_SERVER_TLS
+              value: "false"
+            - name: FLEET_MYSQL_ADDRESS
+              value: {{ printf "%s:3306" (include "fleetdm.mysqlServiceName" .) | quote }}
+            - name: FLEET_MYSQL_DATABASE
+              value: {{ .Values.mysql.database | quote }}
+            - name: FLEET_MYSQL_USERNAME
+              value: {{ .Values.mysql.username | quote }}
+            - name: FLEET_MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fleetdm.fullname" . }}-db
+                  key: mysql-password
+            - name: FLEET_REDIS_ADDRESS
+              value: {{ printf "%s:6379" (include "fleetdm.redisServiceName" .) | quote }}
+            {{- range $key, $value := .Values.fleet.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.fleet.resources | nindent 12 }}

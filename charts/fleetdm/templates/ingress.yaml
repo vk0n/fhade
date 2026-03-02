@@ -1,0 +1,35 @@
+{{- if .Values.fleet.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "fleetdm.fullname" . }}
+  labels:
+    {{- include "fleetdm.labels" . | nindent 4 }}
+  {{- with .Values.fleet.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.fleet.ingress.className }}
+  ingressClassName: {{ .Values.fleet.ingress.className }}
+  {{- end }}
+  rules:
+    {{- range .Values.fleet.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "fleetdm.fullname" $ }}
+                port:
+                  number: {{ $.Values.fleet.service.port }}
+          {{- end }}
+    {{- end }}
+  {{- with .Values.fleet.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

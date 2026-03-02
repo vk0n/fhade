@@ -1,0 +1,15 @@
+apiVersion: v2
+name: fleetdm
+description: FleetDM stack with Fleet server, MySQL, and Redis
+type: application
+version: 0.1.0
+appVersion: "4.65.0"
+keywords:
+  - fleetdm
+  - mysql
+  - redis
+home: https://fleetdm.com
+sources:
+  - https://github.com/fleetdm/fleet
+maintainers:
+  - name: DevOps Candidate

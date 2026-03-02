@@ -1,0 +1,11 @@
+FleetDM has been deployed.
+
+Fleet UI endpoint:
+{{- if eq .Values.fleet.service.type "NodePort" }}
+  http://localhost:8080
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "fleetdm.fullname" . }} 8080:{{ .Values.fleet.service.port }}
+{{- end }}
+
+Check pods:
+  kubectl -n {{ .Release.Namespace }} get pods
