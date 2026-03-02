@@ -1,0 +1,85 @@
+flowchart LR
+
+  %% Edge
+  subgraph EDGE[Edge]
+    U[Users] --> CF[CloudFront]
+    CF --> WAF[AWS WAF]
+  end
+
+  %% Production account
+  subgraph PROD[Prod AWS Account]
+    subgraph VPC[VPC]
+      subgraph PUB[Public Subnets]
+        ALB[ALB]
+        NAT[NAT Gateway]
+      end
+
+      subgraph PVT[Private Subnets]
+        subgraph EKS[EKS Cluster]
+          ING[Ingress]
+          API[Flask API]
+          REDIS[Redis]
+          ARGO[ArgoCD Prod]
+        end
+        SEC[Secrets Manager]
+      end
+    end
+  end
+
+  %% Non-prod account
+  subgraph NONPROD[NonProd AWS Account]
+    NPEKS[NonProd EKS]
+    NPARGO[ArgoCD NonProd]
+  end
+
+  %% Shared services account
+  subgraph SHARED[Shared Services Account]
+    OBS[Central Observability]
+    SECR[Shared ECR Mirror]
+  end
+
+  %% Management/security account
+  subgraph MGMT[Management Security Account]
+    ORG[AWS Organizations]
+    SECOPS[CloudTrail GuardDuty SecurityHub]
+  end
+
+  %% Data platform
+  subgraph DATA[MongoDB Atlas on AWS]
+    MONGO[Replica Set + PITR]
+  end
+
+  %% CI/CD
+  subgraph CICD[CI/CD]
+    GHA[GitHub Actions]
+    ECR[ECR]
+    GITOPS[GitOps Repo]
+    TF[Terraform]
+  end
+
+  %% App traffic
+  WAF --> ALB --> ING --> API
+  API --> REDIS
+  API --> SEC
+  API --> NAT
+  API --> MONGO
+
+  %% Delivery flow
+  GHA --> ECR
+  GHA --> GITOPS
+  GITOPS --> ARGO
+  GITOPS --> NPARGO
+  NPARGO --> ARGO
+
+  %% Provisioning and governance
+  TF --> ALB
+  TF --> SEC
+  TF --> ARGO
+  TF --> NPEKS
+  ORG --> ARGO
+  ORG --> NPARGO
+
+  %% Centralized shared/security integrations
+  ECR --> SECR
+  ARGO --> OBS
+  ARGO --> SECOPS

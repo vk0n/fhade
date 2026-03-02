@@ -62,10 +62,10 @@ Expected: Fleet, MySQL, and Redis pods should be `Running` and `Ready`.
 2. Fleet health endpoint:
 
 ```bash
-curl -fsS http://localhost:8080/api/latest/fleet/version
+curl -fsS http://localhost:8080/healthz
 ```
 
-Expected: JSON response with Fleet version info.
+Expected: `OK`.
 
 3. MySQL readiness:
 
@@ -100,3 +100,15 @@ Pipeline behavior:
 - Lints the chart (`helm lint`)
 - Renders templates (`helm template`)
 - Uses `helm/chart-releaser-action` to publish chart releases from `charts/`
+
+## Theoretical part
+
+Artifacts are in `theoretical/`:
+
+- `theoretical/architectural-design.md` — architecture design document
+- `theoretical/hld.mmd` — high-level architecture diagram in Mermaid format
+- `theoretical/hld.png` — exported diagram screenshot
+
+HLD preview:
+
+![HLD](theoretical/hld.png)
