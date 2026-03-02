@@ -2,7 +2,7 @@ apiVersion: v2
 name: fleetdm
 description: FleetDM stack with Fleet server, MySQL, and Redis
 type: application
-version: 0.1.0
+version: 1.0.0
 appVersion: "4.65.0"
 keywords:
   - fleetdm

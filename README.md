@@ -100,5 +100,3 @@ Pipeline behavior:
 - Lints the chart (`helm lint`)
 - Renders templates (`helm template`)
 - Uses `helm/chart-releaser-action` to publish chart releases from `charts/`
-
-To publish chart artifacts publicly, enable GitHub Pages from `gh-pages` branch in repository settings.
